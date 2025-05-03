@@ -1,4 +1,16 @@
-const { minimatch } = require('minimatch');
+import { minimatch } from 'minimatch';
+
+interface FileObject {
+  filename: string;
+  status: string;
+  changes: number;
+}
+
+interface FilterOptions {
+  includePatterns?: string[];
+  excludePatterns?: string[];
+  maxFiles?: number;
+}
 
 /**
  * Determines if a file should be analyzed based on its properties and patterns
@@ -7,7 +19,7 @@ const { minimatch } = require('minimatch');
  * @param {string[]} excludePatterns - Glob patterns for files to exclude
  * @returns {boolean}
  */
-function matchesPatterns(filename, includePatterns, excludePatterns) {
+function matchesPatterns(filename: string, includePatterns: string[], excludePatterns: string[]): boolean {
   // If no include patterns are specified, consider all files as included
   const isIncluded = includePatterns.length === 0 || includePatterns.some((pattern) => minimatch(filename, pattern));
   console.debug(`File ${filename} is included: ${isIncluded}`);
@@ -24,7 +36,7 @@ function matchesPatterns(filename, includePatterns, excludePatterns) {
  * @param {Object} file - The file object from GitHub API
  * @returns {boolean}
  */
-function hasSignificantChanges(file) {
+function hasSignificantChanges(file: FileObject): boolean {
   // Skip files that are deleted
   if (file.status === 'removed') {
     return false;
@@ -51,7 +63,7 @@ function hasSignificantChanges(file) {
  * @param {Object} options - Filtering options
  * @returns {Object[]} Filtered array of files
  */
-function filterFiles(files, options) {
+export function filterFiles(files: FileObject[], options: FilterOptions): FileObject[] {
   const { includePatterns = [], excludePatterns = [], maxFiles = 10 } = options;
 
   console.debug(`Filtering ${files.length} files`);
@@ -84,8 +96,4 @@ function filterFiles(files, options) {
   return filteredFiles;
 }
 
-module.exports = {
-  filterFiles,
-  matchesPatterns,
-  hasSignificantChanges,
-};
+export { matchesPatterns, hasSignificantChanges };

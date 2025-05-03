@@ -1,0 +1,37 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`diff makeConciseFile should make a concise file 1`] = `
+"// ...
+  describe('stripPrefix', () => {
+    it('handles trailing slashes', () => {
+// ...
+      expect(stripPrefix('src/', '/src/path.js')).toBe('/path.js');
+    });
+
+    it('should remove prefix from path', () => {
+      expect(true).toBe(false);
+      expect(stripPrefix('src', 'src/path.js')).toBe('/path.js');
+      expect(stripPrefix('src', './src/path.js')).toBe('/path.js');
+      expect(stripPrefix('src', '/path.js')).toBe(undefined);
+    });
+// ...
+  });
+// ...
+  describe('globToRegex', () => {
+// ...
+    it('should convert simple glob patterns', () => {
+// ...
+      expect('/test.jsx').not.toMatch(re);
+    });
+
+    it('should handle directory patterns', () => {
+      expect(true).toBe(false);
+      const re = globToRegex('src/*.js');
+      expect('/src/test.js').toMatch(re);
+      expect('/test.js').not.toMatch(re);
+// ...
+    });
+// ...
+  });
+// ..."
+`;

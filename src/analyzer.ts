@@ -1,3 +1,16 @@
+interface FileData {
+  filename: string;
+  content: string;
+}
+
+interface AnalysisOptions {
+  analysisLevel?: 'basic' | 'standard' | 'deep';
+  model?: string;
+  commentThreshold?: number;
+}
+
+type AnalysisLevel = 'basic' | 'standard' | 'deep';
+
 /**
  * Creates the analysis prompt for Claude
  * @param {string} filename - The name of the file
@@ -5,8 +18,8 @@
  * @param {string} analysisLevel - The depth of analysis (basic, standard, deep)
  * @returns {string} The formatted prompt
  */
-function createAnalysisPrompt(filename, content, analysisLevel = 'standard') {
-  const prompts = {
+function createAnalysisPrompt(filename: string, content: string, analysisLevel: AnalysisLevel = 'standard'): string {
+  const prompts: Record<AnalysisLevel, string> = {
     basic: `Please analyze this code change and provide basic feedback:
     
     File: ${filename}
@@ -58,7 +71,7 @@ function createAnalysisPrompt(filename, content, analysisLevel = 'standard') {
  * @param {string} analysis - The analysis from Claude
  * @returns {string} Formatted comment body
  */
-function formatAnalysisComment(filename, analysis) {
+export function formatAnalysisComment(filename: string, analysis: string): string {
   return `## AI Analysis for ${filename}
 
 ${analysis}
@@ -73,20 +86,16 @@ ${analysis}
  * @param {Object} options - Analysis options
  * @returns {Promise<string>} Analysis result
  */
-async function analyzeFile(file, options = {}) {
+export async function analyzeFile(file: FileData, options: AnalysisOptions = {}): Promise<string> {
   const { analysisLevel = 'standard' } = options;
 
   try {
-    const prompt = createAnalysisPrompt(file.filename, file.content, analysisLevel);
+    const prompt = createAnalysisPrompt(file.filename, file.content, analysisLevel as AnalysisLevel);
     return prompt;
   } catch (error) {
-    console.error(`Error analyzing ${file.filename}: ${error.message}`);
+    console.error(`Error analyzing ${file.filename}: ${error instanceof Error ? error.message : String(error)}`);
     throw error;
   }
 }
 
-module.exports = {
-  analyzeFile,
-  createAnalysisPrompt,
-  formatAnalysisComment,
-};
+export { createAnalysisPrompt };

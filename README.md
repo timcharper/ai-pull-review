@@ -194,7 +194,7 @@ jobs:
 ## Requirements
 
 - Node.js >= 22.0.0
-- NPM >= 10.0.0
+- Yarn >= 1.22.0
 
 ## License
 

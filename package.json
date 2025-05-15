@@ -1,6 +1,6 @@
 {
   "name": "@timcharper/ai-pull-review",
-  "version": "3.0.0-rc1",
+  "version": "3.0.0-rc2",
   "description": "A GitHub Action that leverages Anthropic's Claude AI to provide intelligent analysis and review of pull requests.",
   "author": "Diego Maroto",
   "license": "MIT",

@@ -26,18 +26,31 @@ inputs:
     description: 'Minimum confidence score for comments (0-1)'
     required: false
     default: '0.7'
-  analysis_level:
-    description: 'Depth of analysis (basic, standard, deep)'
-    required: false
-    default: 'standard'
   model:
     description: 'Claude model to use for analysis'
     required: false
     default: 'claude-3-5-haiku-20241022'
 
 runs:
-  using: 'node20'
-  main: 'dist/gha.js'
+  using: 'docker'
+  image: 'node:22-alpine'
+  env:
+    GITHUB_TOKEN: ${{ inputs.github_token }}
+    ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+  args:
+    - 'sh'
+    - '-c'
+    - |
+      npm install -g @timcharper/ai-pull-review
+      ai-pull-review --mode github \
+        --repo "${{ github.repository }}" \
+        --pr "${{ github.event.pull_request.number }}" \
+        --include "${{ inputs.file_patterns }}" \
+        --exclude "${{ inputs.exclude_patterns }}" \
+        --max-files "${{ inputs.max_files }}" \
+        --threshold "${{ inputs.comment_threshold }}" \
+        --model "${{ inputs.model }}" \
+        --write-pull-request
 
 branding:
   icon: 'eye'

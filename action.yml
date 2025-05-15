@@ -1,6 +1,6 @@
 name: 'AI Pull Request Analysis'
 description: 'Analyzes pull requests using Anthropic Claude AI to provide intelligent feedback'
-author: 'Diego Maroto'
+author: 'Diego Maroto and Tim Harper'
 
 inputs:
   anthropic_api_key:

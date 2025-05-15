@@ -1,7 +1,7 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { AnthropicBatchManager } from './anthropic';
-import { Config, AnalysisLevel, FileData, AnalysisOptions } from './types';
+import { Config, FileData, AnalysisOptions } from './types';
 import { loadCursorRulesFromDirectory, findMatchingRules } from './cursorRules';
 import { DiffSet, DiffSetEntry, GitProvider } from './gitProvider';
 import { GitHubDiffProvider } from './gitProviders/github';
@@ -9,12 +9,6 @@ import { LocalGitDiffProvider } from './gitProviders/localgit';
 import { logger } from './utils/logger';
 import { globToRegex, stripPrefix } from './utils/glob';
 import { makeConciseFile, parsePatch } from './utils/diff';
-
-const ANALYSIS_LEVELS: Record<AnalysisLevel, { maxFiles: number; maxSize: number }> = {
-  basic: { maxFiles: 5, maxSize: 50 },
-  standard: { maxFiles: 10, maxSize: 100 },
-  deep: { maxFiles: 20, maxSize: 200 },
-};
 
 function indent(text: string, indent: number): string {
   const indentString = ' '.repeat(indent);
@@ -117,7 +111,7 @@ ${indent(f.content, 4)}
 
   const result = await anthropic.sendBatch([{ role: 'user', content: prompt }], options);
 
-  return result[0].content;
+  return result[0]?.content || '';
 }
 
 async function processFiles(provider: GitProvider, files: DiffSetEntry[], config: Config): Promise<FileData[]> {
@@ -126,7 +120,7 @@ async function processFiles(provider: GitProvider, files: DiffSetEntry[], config
     maxFiles: config.maxFiles,
     maxSize: config.maxSize,
   };
-  logger.debug('Processing files with level:', config.analysisLevel, level);
+  logger.debug('Processing files with level:', level);
 
   const includePatterns = config.include.map((pattern) => globToRegex(pattern));
   const excludePatterns = config.exclude.map((pattern) => globToRegex(pattern));
@@ -209,7 +203,6 @@ export async function analyzePR(config: Config): Promise<void> {
   // Prepare analysis options
   const analysisOptions: AnalysisOptions = {
     model: config.model,
-    analysisLevel: config.analysisLevel,
     commentThreshold: config.commentThreshold,
     maxTokens: 30000 /** output tokens */,
     temperature: 0.7,

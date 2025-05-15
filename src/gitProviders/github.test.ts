@@ -7,7 +7,6 @@ describe('GitHubDiffProvider', () => {
   const config: Config = {
     anthropicApiKey: 'test-key',
     model: 'test-model',
-    analysisLevel: 'basic',
     include: ['*.txt', '*.md'],
     exclude: [],
     maxFiles: 100,
@@ -15,6 +14,7 @@ describe('GitHubDiffProvider', () => {
     commentThreshold: 0.5,
     writePullRequest: false,
     output: 'stdout',
+    dryRun: false,
     workingDir: '/test',
     mode: 'github',
     github: {

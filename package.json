@@ -4,37 +4,32 @@
   "description": "A GitHub Action that leverages Anthropic's Claude AI to provide intelligent analysis and review of pull requests.",
   "author": "Diego Maroto",
   "license": "MIT",
-  "main": "dist/cli.js",
+  "main": "bin/cli.js",
   "engines": {
     "node": ">=22.0.0",
     "npm": ">=10.0.0"
   },
   "scripts": {
     "test": "jest",
-    "prepare": "husky",
-    "start": "node dist/cli.js",
+    "start": "node bin/cli.js",
     "dev": "ts-node src/cli.ts",
     "pretty": "prettier --write .",
-    "build": "npm run gha && npm run cli",
-    "gha": "swc src/gha.ts -o dist/gha.js",
-    "cli": "swc src/cli.ts -o bin/cli.js",
+    "build": "esbuild src/cli.ts --bundle --platform=node --target=node22 --outfile=bin/cli.js",
     "typecheck": "tsc --noEmit"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/diekotto/ai-pull-review.git"
+    "url": "git+https://github.com/timcharper/ai-pull-review.git"
   },
   "bugs": {
     "url": "https://github.com/diekotto/ai-pull-review/issues"
   },
   "homepage": "https://github.com/diekotto/ai-pull-review#readme",
   "devDependencies": {
-    "@swc/cli": "^0.3.10",
-    "@swc/core": "^1.4.8",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.11.24",
     "@types/uuid": "^9.0.8",
-    "husky": "^9.1.7",
+    "esbuild": "^0.20.2",
     "jest": "^29.7.0",
     "lint-staged": "^15.3.0",
     "prettier": "3.4.2",

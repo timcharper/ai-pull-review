@@ -4,7 +4,7 @@ import 'dotenv/config';
 import { program } from 'commander';
 import { analyzePR } from './index';
 import { version } from '../package.json';
-import { Config, AnalysisLevel } from './types';
+import { Config } from './types';
 import { execSync } from 'child_process';
 import { DEFAULT_MODEL } from './config';
 import { resolve } from 'path';
@@ -45,7 +45,6 @@ program
   .option('-r, --repo <owner/repo>', 'Repository (required for github mode)')
   .option('-t, --token <token>', 'GitHub token (required for github mode)', process.env.GITHUB_TOKEN)
   .option('-k, --key <key>', 'Anthropic API key', process.env.ANTHROPIC_API_KEY)
-  .option('-l, --level <level>', 'Analysis level (basic, standard, deep)', 'basic')
   .option('--model <model>', 'Claude model to use', DEFAULT_MODEL)
   .option('--include <patterns>', 'File patterns to include (comma-separated)')
   .option(
@@ -105,7 +104,6 @@ if (mode === 'github') {
 const config: Config = {
   anthropicApiKey: options.key,
   model: options.model,
-  analysisLevel: options.level as AnalysisLevel,
   include: options.include?.split(',').map((p: string) => p.trim()) || [],
   exclude: options.exclude?.split(',').map((p: string) => p.trim()) || [],
   maxFiles: parseInt(options.maxFiles, 10),

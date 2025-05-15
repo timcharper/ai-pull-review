@@ -1,6 +1,3 @@
-import { GitProvider } from './gitProvider';
-
-export type AnalysisLevel = 'basic' | 'standard' | 'deep';
 export type DIFF_STATUS = 'added' | 'modified' | 'removed';
 
 export interface FileData {
@@ -17,7 +14,6 @@ export interface AnalysisOptions {
   temperature?: number;
   maxRetries?: number;
   retryDelay?: number;
-  analysisLevel?: AnalysisLevel;
   commentThreshold?: number;
 }
 
@@ -34,20 +30,19 @@ export interface LocalGitConfig {
 
 export interface Config {
   anthropicApiKey: string;
-  github?: GitHubConfig;
-  localgit?: LocalGitConfig;
   model: string;
-  analysisLevel: AnalysisLevel;
   include: string[];
   exclude: string[];
   maxFiles: number;
   maxSize: number;
   commentThreshold: number;
   writePullRequest: boolean;
-  output?: string;
-  dryRun?: boolean;
+  output: string;
+  dryRun: boolean;
   workingDir: string;
   mode: 'github' | 'localgit';
+  github?: GitHubConfig;
+  localgit?: LocalGitConfig;
 }
 
 export interface FileObject {

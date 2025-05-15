@@ -41,7 +41,7 @@
     "**/*": "prettier --write --ignore-unknown"
   },
   "bin": {
-    "ai-pull-review-cli": "./bin/cli.js"
+    "ai-pull-review": "./bin/cli.js"
   },
   "files": [
     "bin",

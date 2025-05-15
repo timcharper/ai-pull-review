@@ -103,7 +103,7 @@ if (mode === 'github') {
 // Convert options to config object
 const config: Config = {
   anthropicApiKey: options.key,
-  model: options.model,
+  model: options.model || DEFAULT_MODEL,
   include: options.include?.split(',').map((p: string) => p.trim()) || [],
   exclude: options.exclude?.split(',').map((p: string) => p.trim()) || [],
   maxFiles: parseInt(options.maxFiles, 10),

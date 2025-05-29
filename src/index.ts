@@ -38,7 +38,7 @@ async function generateCursorRules(files: FileData[], provider: GitProvider): Pr
   const formattedRules = matchingRules
     .map(
       (rule) =>
-        `## Rule set: ${rule.description}\n\nApplies to globs: ${rule.globs.join(', ')}\n\n${indent(rule.content, 4)}`,
+        `## Rule set: ${rule.description}\n\nOnly applies to files matching these globs: ${rule.globs.join(', ')}\n\n${indent(rule.content, 4)}`,
     )
     .join('\n\n');
 
@@ -59,12 +59,12 @@ For each file, provide:
 
 - Suggestions for improvements
 - Any violations of the coding rules (below)
-- DO NOT say what the code does, or what it does well. Focus only on issues.
-- If no violations, just say "No violations found" and move on.
+- DO NOT say what the code does, or what it does well. Only apply rules with globs that match the file changed.
+- If no violations, skip the file; be brief.
 
 # Coding rules:
 
-It is VERY IMPORTANT that the code follows these rules:
+It is VERY IMPORTANT that the code follows these rules.
 
 {cursor_rules}
 
@@ -111,7 +111,7 @@ ${indent(f.content, 4)}
 
   const result = await anthropic.sendBatch([{ role: 'user', content: prompt }], options);
 
-  return result[0]?.content || '';
+  return result[0]?.content || 'No analysis performed';
 }
 
 async function processFiles(provider: GitProvider, files: DiffSetEntry[], config: Config): Promise<FileData[]> {

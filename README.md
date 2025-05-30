@@ -80,20 +80,26 @@ Usage: ai-pull-review-cli [options]
 
 Options:
   -V, --version                       output the version number
-  -p, --pr <number>                   Pull request number (required)
-  -r, --repo <owner/repo>            Repository (required)
+  -C, --directory <dir>               Change to directory before performing any operations
+  -m, --mode <mode>                   Analysis mode (github or localgit) (default: "localgit")
+  -p, --pr <number>                   Pull request number (required for github mode)
+  -r, --repo <owner/repo>            Repository (required for github mode)
   -t, --token <token>                GitHub token (default: GITHUB_TOKEN env)
   -k, --key <key>                    Anthropic API key (default: ANTHROPIC_API_KEY env)
-  -l, --level <level>                Analysis level (basic, standard, deep) (default: "basic")
-  -m, --model <model>                Claude model to use (default: "claude-3-5-haiku-20241022")
-  --file-patterns <patterns>         File patterns to include (comma-separated)
-  --exclude-patterns <patterns>      File patterns to exclude (default: "**/node_modules/**, **/dist/**, **/build/**, **/bin/**, **/artifacts/**")
-  --max-files <number>              Maximum files to analyze (default: "10")
-  --max-size <number>               Maximum file size in KB (default: "100")
-  --threshold <number>              Comment confidence threshold (default: "0.6")
-  --write-pull-request              Write the analysis to the pull request as a comment
-  -o, --output <folder>             Output folder for results (default: "results")
-  -h, --help                        display help for command
+  --model <model>                    Claude model to use
+  --include <patterns>               File patterns to include (comma-separated)
+  --exclude <patterns>               File patterns to exclude (default: node_modules, dist, build, etc.)
+  --max-files <number>               Maximum files to analyze (default: "50")
+  --max-size <number>                Maximum file size in KB (default: "100")
+  --threshold <number>               Comment confidence threshold (default: "0.6")
+  -A, --after-context <number>       Number of lines to show after each change (default: "10")
+  -B, --before-context <number>      Number of lines to show before each change (default: "10")
+  --write-pull-request               Write the analysis to the pull request as a comment
+  -o, --output <folder>              Output folder for results
+  --base-sha <sha>                   Base SHA or branch for local Git diff
+  --head-sha <sha>                   Head SHA for local Git diff (default: "HEAD")
+  --dry-run                          Show the prompt without sending to the model
+  -h, --help                         display help for command
 ```
 
 #### Example Usage
@@ -103,20 +109,23 @@ Options:
 export GITHUB_TOKEN=your_github_token
 export ANTHROPIC_API_KEY=your_anthropic_key
 
-# Analyze a specific PR
-ai-pull-review-cli -p 123 -r owner/repo -l deep
+# Analyze a GitHub PR with context
+ai-pull-review-cli --mode github -p 123 -r owner/repo -A 5 -B 3
+
+# Analyze local git changes with minimal context
+ai-pull-review-cli --mode localgit -A 1 -B 1
+
+# Analyze specific files with maximum context
+ai-pull-review-cli --include "*.ts,*.tsx" -A 10 -B 10
+
+# Dry run to see what would be analyzed
+ai-pull-review-cli --dry-run -A 2 -B 2
 
 # Or with npx
-npx ai-pull-review-cli -p 123 -r owner/repo -l deep
+npx ai-pull-review-cli --mode github -p 123 -r owner/repo
 ```
 
 ## Configuration
-
-### Analysis Levels
-
-- `basic`: Quick analysis focusing on bugs and style issues
-- `standard`: Comprehensive analysis including performance and security
-- `deep`: In-depth analysis including architecture, testing, and broader implications
 
 ### Available Models
 
@@ -125,63 +134,6 @@ The tool supports various Claude models with different capabilities and pricing:
 - `claude-3-5-sonnet-20241022` (Default for accuracy)
 - `claude-3-5-haiku-20241022` (Default for speed)
 - `claude-3-opus-20240229` (Most capable)
-
-### GitHub Action Configuration
-
-Complete configuration options for your workflow file:
-
-```yaml
-- uses: diekotto/ai-pull-review@v2
-  with:
-    # Required
-    anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-    github_token: ${{ secrets.GITHUB_TOKEN }}
-
-    # Optional
-    file_patterns: '**/*.js,**/*.jsx,**/*.ts,**/*.tsx,**/*.py,**/*.java,**/*.rb,**/*.go,**/*.rs' # Files to analyze
-    exclude_patterns: '**/node_modules/**,**/dist/**,**/bin/**' # Files to exclude
-    max_files: '10' # Maximum files to analyze
-    max_size: '100' # Maximum file size in KB
-    comment_threshold: '0.7' # Minimum confidence for comments
-    analysis_level: 'basic' # basic, standard, or deep
-    model: 'claude-3-5-haiku-20241022' # Claude model to use
-```
-
-### Advanced Example
-
-Configuration focusing on JavaScript analysis with deep inspection:
-
-```yaml
-name: Deep JS Analysis
-on:
-  pull_request:
-    paths:
-      - '**.js'
-      - '**.jsx'
-      - '**.ts'
-      - '**.tsx'
-
-jobs:
-  analyze:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-
-    steps:
-      - uses: actions/checkout@v4
-      - name: AI Pull Request Analysis
-        uses: diekotto/ai-pull-review@v2
-        with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          file_patterns: '**/*.js,**/*.jsx,**/*.ts,**/*.tsx'
-          exclude_patterns: '**/node_modules/**,**/dist/**,**/*.test.js'
-          analysis_level: 'deep'
-          max_files: '15'
-          comment_threshold: '0.6'
-          model: 'claude-3-5-sonnet-20241022'
-```
 
 ## Error Handling and Limitations
 

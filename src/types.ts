@@ -29,6 +29,8 @@ export interface LocalGitConfig {
 }
 
 export interface Config {
+  afterLines: number;
+  beforeLines: number;
   anthropicApiKey: string;
   model: string;
   include: string[];

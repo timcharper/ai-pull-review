@@ -55,6 +55,8 @@ program
   .option('--max-files <number>', 'Maximum files to analyze', '50')
   .option('--max-size <number>', 'Maximum file size in KB', '100')
   .option('--threshold <number>', 'Comment confidence threshold', '0.6')
+  .option('-A, --after-context <number>', 'Expand context after each change', '10')
+  .option('-B, --before-context <number>', 'Expand context before each change', '10')
   .option('--write-pull-request', 'Write the analysis to the pull request as a comment')
   .option('-o, --output <folder>', 'Output folder for results')
   .option('--base-sha <sha>', 'Base SHA or branch for local Git diff (defaults to mainline branch)')
@@ -102,6 +104,8 @@ if (mode === 'github') {
 
 // Convert options to config object
 const config: Config = {
+  afterLines: parseInt(options.afterContext, 10) || 0,
+  beforeLines: parseInt(options.beforeContext, 10) || 0,
   anthropicApiKey: options.key,
   model: options.model || DEFAULT_MODEL,
   include: options.include?.split(',').map((p: string) => p.trim()) || [],

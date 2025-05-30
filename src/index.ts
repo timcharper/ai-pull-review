@@ -160,12 +160,11 @@ async function processFiles(provider: GitProvider, files: DiffSetEntry[], config
         filename: file.filename,
         originalContent: content,
         content: makeConciseFile({
-          filename: file.filename,
-          regionsOfInterest: parsedPatch.chunks.map((chunk) => ({
-            startLine: chunk.startLine,
-            endLine: chunk.endLine,
-          })),
+          parsedPatch,
           fileContent: content,
+          show: 'additions',
+          beforeLines: config.beforeLines,
+          afterLines: config.afterLines,
         }),
         changes: file.patch,
         status: file.status,

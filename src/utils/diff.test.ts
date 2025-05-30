@@ -1,4 +1,4 @@
-import { makeConciseFile, parsePatch } from './diff';
+import { makeConciseFile, parsePatch, getAddedLines, getRemovedLines } from './diff';
 
 const exampleDiff = `
 diff --git a/src/index.test.ts b/src/index.test.ts
@@ -13,8 +13,11 @@ index c4acf56..cf4ddbf 100644
        expect(stripPrefix('src', 'src/path.js')).toBe('/path.js');
        expect(stripPrefix('src', './src/path.js')).toBe('/path.js');
        expect(stripPrefix('src', '/path.js')).toBe(undefined);
-@@ -54,6 +55,7 @@ describe('glob utilities', () => {
+@@ -52,8 +53,9 @@ describe('glob utilities', () => {
+       expect('/test.js').not.toMatch(re);
+       expect('/test.jsx').not.toMatch(re);
      });
+-    // TODO: add more test cases
  
      it('should handle directory patterns', () => {
 +      expect(true).toBe(false);
@@ -124,41 +127,142 @@ describe('diff', () => {
     it('should parse the diff', () => {
       const diff = parsePatch(exampleDiff);
       expect(diff.chunks.length).toBe(2);
-      expect(diff.chunks[0].startLine).toBe(9);
-      expect(diff.chunks[0].endLine).toBe(16);
-      expect(diff.chunks[1].startLine).toBe(55);
-      expect(diff.chunks[1].endLine).toBe(62);
+
+      // First chunk
+      expect(diff.chunks[0].before.startLine).toBe(9);
+      expect(diff.chunks[0].after.startLine).toBe(9);
+      expect(getAddedLines(diff.chunks[0])).toContain(12); // Added line: expect(true).toBe(false);
+
+      // Second chunk
+      expect(diff.chunks[1].before.startLine).toBe(52);
+      expect(diff.chunks[1].after.startLine).toBe(53);
+      expect(getAddedLines(diff.chunks[1])).toContain(58); // Added line: expect(true).toBe(false);
+    });
+
+    it('should correctly track added and removed lines', () => {
+      const diff = parsePatch(exampleDiff);
+
+      // First chunk should have one addition at line 12
+      expect(getAddedLines(diff.chunks[0]).size).toBe(1);
+      expect(getAddedLines(diff.chunks[0]).has(12)).toBe(true);
+      expect(getRemovedLines(diff.chunks[0]).size).toBe(0);
+
+      // Second chunk should have one addition at line 58 and one removal at line 55
+      expect(getAddedLines(diff.chunks[1]).size).toBe(1);
+      expect(getAddedLines(diff.chunks[1]).has(58)).toBe(true);
+      expect(getRemovedLines(diff.chunks[1]).size).toBe(1);
+      expect(getRemovedLines(diff.chunks[1]).has(55)).toBe(true);
+
+      // Verify filename is parsed correctly (without b/ prefix)
+      expect(diff.filename).toBe('src/index.test.ts');
     });
   });
 
   describe('makeConciseFile', () => {
     it('should make a concise file', () => {
+      const parsedPatch = parsePatch(exampleDiff);
       const concise = makeConciseFile({
-        filename: 'src/index.test.ts',
+        parsedPatch,
         fileContent: sourceFile,
-        regionsOfInterest: [
-          {
-            startLine: 9,
-            endLine: 16,
-          },
-          {
-            startLine: 55,
-            endLine: 62,
-          },
-        ],
+        show: 'additions',
       });
 
       expect(concise).toMatchSnapshot();
     });
 
-    it('returns the whole file if the entire file is of interest', () => {
-      const concise = makeConciseFile({
+    it('returns the whole file with space prefixes when the entire file is of interest', () => {
+      // Create a simple patch that covers the whole file
+      const wholePatch = {
         filename: 'src/index.test.ts',
+        chunks: [
+          {
+            before: { startLine: 1, endLine: sourceFile.split('\n').length, lines: [] as Array<[boolean, string]> },
+            after: { startLine: 1, endLine: sourceFile.split('\n').length, lines: [] as Array<[boolean, string]> },
+          },
+        ],
+      };
+
+      const concise = makeConciseFile({
+        parsedPatch: wholePatch,
         fileContent: sourceFile,
-        regionsOfInterest: [{ startLine: 1, endLine: sourceFile.split('\n').length }],
+        show: 'additions',
       });
 
-      expect(concise).toBe(sourceFile);
+      // Should have space prefix for all lines since no addedLines specified
+      const expectedResult = sourceFile
+        .split('\n')
+        .map((line) => ` ${line}`)
+        .join('\n');
+      expect(concise).toBe(expectedResult);
+    });
+
+    it('should mark addition lines with + prefix when show is "additions"', () => {
+      const parsedPatch = parsePatch(exampleDiff);
+      const concise = makeConciseFile({
+        parsedPatch,
+        fileContent: sourceFile,
+        show: 'additions',
+      });
+      expect(concise).toMatchSnapshot();
+    });
+
+    it('should mark removal lines with - prefix when show is "removals"', () => {
+      const parsedPatch = parsePatch(exampleDiff);
+      const concise = makeConciseFile({
+        parsedPatch,
+        fileContent: sourceFile,
+        show: 'removals',
+      });
+
+      expect(concise).toMatchSnapshot();
+    });
+
+    it('should not mark lines when they are not in the specified change set', () => {
+      const parsedPatch = parsePatch(exampleDiff);
+      const concise = makeConciseFile({
+        parsedPatch,
+        fileContent: sourceFile,
+        show: 'removals', // But we're showing removals, so additions won't have prefix
+      });
+
+      expect(concise).toMatchSnapshot();
+    });
+
+    it('should handle both additions and removals in different regions', () => {
+      const parsedPatch = parsePatch(exampleDiff);
+      const concise = makeConciseFile({
+        parsedPatch,
+        fileContent: sourceFile,
+        show: 'additions',
+      });
+
+      expect(concise).toMatchSnapshot();
+    });
+
+    it('should expand context with beforeLines and afterLines', () => {
+      const parsedPatch = parsePatch(exampleDiff);
+      const concise = makeConciseFile({
+        parsedPatch,
+        fileContent: sourceFile,
+        show: 'additions',
+        beforeLines: 3,
+        afterLines: 2,
+      });
+
+      expect(concise).toMatchSnapshot();
+    });
+
+    it('should handle beforeLines and afterLines at file boundaries', () => {
+      const parsedPatch = parsePatch(exampleDiff);
+      const concise = makeConciseFile({
+        parsedPatch,
+        fileContent: sourceFile,
+        show: 'additions',
+        beforeLines: 100, // Should clamp to start of file
+        afterLines: 100, // Should clamp to end of file
+      });
+
+      expect(concise).toMatchSnapshot();
     });
   });
 });

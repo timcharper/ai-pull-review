@@ -1,0 +1,14 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Typescript
+
+Professional TS dev.
+
+- Use the type system
+- Trust the type system
+- Use yarn for tasks and package management
+- Don't automatically add new dependencies; suggest them
+- Write modular, DRY code. Write helpers to encompass common small tasks.

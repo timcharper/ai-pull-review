@@ -96,7 +96,7 @@ async function analyzeFiles(
       .map(
         (f) => `File: \`${f.filename}\`
 
-${indent(f.content, 4)}
+${indent(f.change, 4)}
 `,
       )
       .join('\n\n'),
@@ -159,10 +159,9 @@ async function processFiles(provider: GitProvider, files: DiffSetEntry[], config
       fileData.push({
         filename: file.filename,
         originalContent: content,
-        content: makeConciseFile({
+        change: makeConciseFile({
           parsedPatch,
           fileContent: content,
-          show: 'additions',
           beforeLines: config.beforeLines,
           afterLines: config.afterLines,
         }),

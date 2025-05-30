@@ -1,11 +1,20 @@
-interface ChunkVersion {
-  startLine: number;
-  endLine: number;
-  lines: Array<[boolean, string]>; // [modified, line]
+type ChangeType = 'add' | 'remove' | 'context';
+// One line of the raw diff within a chunk
+interface DiffLine {
+  beforeLine: number;
+  afterLine: number;
+  type: ChangeType;
+  content: string; // the line text without diff marker
 }
+
+const diffSymbol: Record<ChangeType, string> = {
+  add: '+',
+  remove: '-',
+  context: ' ',
+};
+
 export interface PatchChunk {
-  before: ChunkVersion;
-  after: ChunkVersion;
+  diffLines: DiffLine[]; // preserves ordering so we can re‑insert removals accurately
 }
 
 export interface ParsedPatch {
@@ -13,69 +22,63 @@ export interface ParsedPatch {
   chunks: PatchChunk[];
 }
 
-export interface RegionOfInterest {
-  startLine: number;
-  endLine: number;
-  addedLines?: Set<number>; // Line numbers that are additions
-  removedLines?: Set<number>; // Line numbers that are removals
-}
-
 /**
- * Parses a chunk of a diff into a PatchChunk object
+ * Parses a chunk of a unified diff into a PatchChunk.
+ * Keeps track of the individual diff lines so we can later
+ * reconstruct exact positions for removed lines when rendering
+ * a "both" view.
  */
 function parseChunk(content: string, oldStartLine: number, newStartLine: number): PatchChunk {
-  const lines = content.split('\n');
+  const raw = content.split('\n');
 
-  let currentNewLine = newStartLine;
   let currentOldLine = oldStartLine;
-  let newLineCount = 0;
-  let oldLineCount = 0;
+  let currentNewLine = newStartLine;
+  const diffLines: DiffLine[] = [];
 
-  const beforeLines: Array<[boolean, string]> = [];
-  const afterLines: Array<[boolean, string]> = [];
-
-  for (const line of lines) {
+  for (const line of raw) {
     if (line.startsWith('+') && !line.startsWith('+++')) {
-      // This is an added line - only exists in after
-      afterLines.push([true, line.substring(1)]);
+      // Added line - exists in after file, inserted at current before position
+      const text = line.substring(1);
+      diffLines.push({
+        type: 'add',
+        content: text,
+        beforeLine: currentOldLine, // where it was inserted relative to before file
+        afterLine: currentNewLine, // actual position in after file
+      });
       currentNewLine++;
-      newLineCount++;
     } else if (line.startsWith('-') && !line.startsWith('---')) {
-      // This is a removed line - only exists in before
-      beforeLines.push([true, line.substring(1)]);
+      // Removed line - existed in before file, would have been at current after position
+      const text = line.substring(1);
+      diffLines.push({
+        type: 'remove',
+        content: text,
+        beforeLine: currentOldLine, // actual position in before file
+        afterLine: currentNewLine, // where it would have been in after file
+      });
       currentOldLine++;
-      oldLineCount++;
-    } else if (line.startsWith(' ') || (!line.startsWith('@') && !line.startsWith('\\') && line.length > 0)) {
-      // This is a context line (unchanged) - exists in both
-      const lineContent = line.startsWith(' ') ? line.substring(1) : line;
-      beforeLines.push([false, lineContent]);
-      afterLines.push([false, lineContent]);
+    } else if (line.startsWith(' ') || (!line.startsWith('@@') && !line.startsWith('\\') && line.length > 0)) {
+      // Context / unchanged - exists in both files
+      const text = line.startsWith(' ') ? line.substring(1) : line;
+      diffLines.push({
+        type: 'context',
+        content: text,
+        beforeLine: currentOldLine,
+        afterLine: currentNewLine,
+      });
       currentNewLine++;
       currentOldLine++;
-      newLineCount++;
-      oldLineCount++;
     }
-    // Skip chunk headers (@@) and other metadata lines
+    // ignore headers and metadata
   }
 
   return {
-    before: {
-      startLine: oldStartLine,
-      endLine: oldStartLine + oldLineCount - 1,
-      lines: beforeLines,
-    },
-    after: {
-      startLine: newStartLine,
-      endLine: newStartLine + newLineCount - 1,
-      lines: afterLines,
-    },
+    diffLines,
   };
 }
 
 function extractFilename(lines: string[]): string {
   for (const line of lines) {
     if (line.startsWith('+++ ')) {
-      // Extract the filename from a line like "+++ b/src/index.test.ts"
       return line.substring(6);
     }
   }
@@ -83,57 +86,36 @@ function extractFilename(lines: string[]): string {
 }
 
 export function parsePatch(patch: string): ParsedPatch {
-  const lines = patch.split('\n');
-  const filename = extractFilename(lines);
+  const all = patch.split('\n');
+  const filename = extractFilename(all);
   const chunks: PatchChunk[] = [];
 
-  const chunkHeaderRegex = /^@@ -(\d+),\d+ \+(\d+),\d+ @@/;
+  const headerRe = /^@@ -(\d+),\d+ \+(\d+),\d+ @@/;
 
-  let currentChunk: PatchChunk | null = null;
-  let currentContent: string[] = [];
+  let currentBuf: string[] = [];
+  let currentOldStart = 0;
+  let currentNewStart = 0;
 
-  for (const line of lines) {
-    const match = line.match(chunkHeaderRegex);
-
-    if (match && match[1] && match[2]) {
-      // If we've already been building a chunk, save it
-      if (currentChunk) {
-        const chunkContent = currentContent.join('\n');
-        chunks.push(parseChunk(chunkContent, currentChunk.before.startLine, currentChunk.after.startLine));
-        currentContent = [];
+  for (const line of all) {
+    const m = line.match(headerRe);
+    if (m && m[1] && m[2]) {
+      // flush previous
+      if (currentBuf.length > 0) {
+        chunks.push(parseChunk(currentBuf.join('\n'), currentOldStart, currentNewStart));
+        currentBuf = [];
       }
-
-      // Extract both old and new line numbers from the chunk header
-      const oldLineNumber = parseInt(match[1], 10);
-      const newLineNumber = parseInt(match[2], 10);
-      currentChunk = {
-        before: {
-          startLine: oldLineNumber,
-          endLine: 0,
-          lines: [],
-        },
-        after: {
-          startLine: newLineNumber,
-          endLine: 0,
-          lines: [],
-        },
-      };
-      currentContent.push(line);
-    } else if (currentChunk) {
-      currentContent.push(line);
+      currentOldStart = parseInt(m[1], 10);
+      currentNewStart = parseInt(m[2], 10);
+      currentBuf.push(line);
+    } else if (currentOldStart > 0) {
+      currentBuf.push(line);
     }
   }
-
-  // Add the last chunk if there is one
-  if (currentChunk) {
-    const chunkContent = currentContent.join('\n');
-    chunks.push(parseChunk(chunkContent, currentChunk.before.startLine, currentChunk.after.startLine));
+  if (currentBuf.length > 0) {
+    chunks.push(parseChunk(currentBuf.join('\n'), currentOldStart, currentNewStart));
   }
 
-  return {
-    filename,
-    chunks,
-  };
+  return { filename, chunks };
 }
 
 function getIndentLevel(line: string): number | undefined {
@@ -143,181 +125,240 @@ function getIndentLevel(line: string): number | undefined {
 }
 
 /**
- * Makes a concise version of a file, showing only specified regions from a parsed patch
- * and maintaining indentation structure
+ * Get the start and end line numbers for the after (new) file version of a chunk
+ */
+export function getAfterLineRange(chunk: PatchChunk): { startLine: number; endLine: number } {
+  if (chunk.diffLines.length === 0) return { startLine: 0, endLine: 0 };
+
+  const afterLines = chunk.diffLines
+    .filter((line) => line.type === 'add' || line.type === 'context')
+    .map((line) => line.afterLine);
+
+  if (afterLines.length === 0) return { startLine: 0, endLine: 0 };
+
+  return {
+    startLine: Math.min(...afterLines),
+    endLine: Math.max(...afterLines),
+  };
+}
+
+/**
+ * Get the start and end line numbers for the before (old) file version of a chunk
+ */
+export function getBeforeLineRange(chunk: PatchChunk): { startLine: number; endLine: number } {
+  if (chunk.diffLines.length === 0) return { startLine: 0, endLine: 0 };
+
+  const beforeLines = chunk.diffLines
+    .filter((line) => line.type === 'remove' || line.type === 'context')
+    .map((line) => line.beforeLine);
+
+  if (beforeLines.length === 0) return { startLine: 0, endLine: 0 };
+
+  return {
+    startLine: Math.min(...beforeLines),
+    endLine: Math.max(...beforeLines),
+  };
+}
+
+/**
+ * Step 1: Identify indices of interest from the diff patches (0-based)
+ */
+function identifyDiffLinesOfInterest(parsedPatch: ParsedPatch): Set<number> {
+  const indicesOfInterest = new Set<number>();
+
+  for (const chunk of parsedPatch.chunks) {
+    for (const diffLine of chunk.diffLines) {
+      indicesOfInterest.add(diffLine.afterLine - 1); // Convert to 0-based index
+    }
+  }
+
+  return indicesOfInterest;
+}
+
+/**
+ * Step 2: Expand indices based on beforeLines/afterLines configuration (0-based)
+ */
+function expandRegionsForContext(
+  indicesOfInterest: Set<number>,
+  beforeLines: number,
+  afterLines: number,
+  maxLineNumber: number,
+): Set<number> {
+  const expandedIndices = new Set<number>();
+
+  for (const idx of indicesOfInterest) {
+    // Add the original index and expand around it
+    for (let i = idx - beforeLines; i <= idx + afterLines; i++) {
+      if (i >= 0 && i < maxLineNumber) {
+        // 0-based bounds checking
+        expandedIndices.add(i);
+      }
+    }
+  }
+
+  return expandedIndices;
+}
+
+/**
+ * Step 3: Expand lines of interest based on indentation rules (parent scopes)
+ */
+function expandRegionsForIndentation(indicesOfInterest: Set<number>, fileContentLines: string[]): Set<number> {
+  const expandedIndices = new Set<number>();
+
+  // Find contiguous regions from the indices
+  const indexRegions = getContigousRanges(indicesOfInterest);
+
+  for (const r of indexRegions) {
+    let maxIndent = 0;
+    // Add all indices in the region and find max indentation
+    for (let i = r.start; i <= r.end; i++) {
+      maxIndent = Math.max(maxIndent, getIndentLevel(fileContentLines[i]!) ?? 0);
+      expandedIndices.add(i);
+    }
+
+    // Look backwards for parent scopes
+    let upIndent = maxIndent;
+    for (let i = r.start - 1; i >= 0 && upIndent > 0; i--) {
+      const ind = getIndentLevel(fileContentLines[i]!);
+      if (ind !== undefined && ind < upIndent) {
+        upIndent = ind;
+        expandedIndices.add(i);
+      }
+    }
+
+    // Look forwards for parent scopes
+    let downIndent = maxIndent;
+    for (let i = r.end + 1; i < fileContentLines.length && downIndent > 0; i++) {
+      const ind = getIndentLevel(fileContentLines[i]!);
+      if (ind !== undefined && ind < downIndent) {
+        downIndent = ind;
+        expandedIndices.add(i);
+      }
+    }
+  }
+
+  return expandedIndices;
+}
+
+export function getContigousRanges(values: Set<number>): Array<{ start: number; end: number }> {
+  if (values.size === 0) return [];
+
+  const sortedValues = Array.from(values).sort((a, b) => a - b);
+
+  const ranges: Array<{ start: number; end: number }> = [];
+  let currentRange: { start: number; end: number } | undefined;
+
+  for (const value of sortedValues) {
+    if (currentRange === undefined || value !== currentRange.end + 1) {
+      if (currentRange !== undefined) {
+        ranges.push(currentRange);
+      }
+      currentRange = { start: value, end: value };
+    } else {
+      currentRange.end = value;
+    }
+  }
+
+  if (currentRange !== undefined) {
+    ranges.push(currentRange);
+  }
+
+  return ranges;
+}
+
+/**
+ * Step 4: Render the final file with diff markers
+ */
+function renderFileWithDiff(
+  fileContentLines: string[],
+  indicesOfInterest: Set<number>,
+  parsedPatch: ParsedPatch,
+): string {
+  const out: string[] = [];
+  let last: 'print' | 'skip' = 'print';
+
+  const diffLinesByLine: Map<number, DiffLine[]> = new Map();
+  for (const chunk of parsedPatch.chunks) {
+    for (const diffLine of chunk.diffLines) {
+      const lines = diffLinesByLine.get(diffLine.afterLine) || [];
+      lines.push(diffLine);
+      diffLinesByLine.set(diffLine.afterLine, lines);
+    }
+  }
+
+  const contiguousIndicesOfInterest = getContigousRanges(indicesOfInterest);
+  if (contiguousIndicesOfInterest[0]?.start /* greater than 0? */) {
+    out.push(' // ...');
+  }
+
+  for (const { start, end } of contiguousIndicesOfInterest) {
+    for (let idx = start; idx <= end; idx++) {
+      const lineNum = idx + 1; // Convert to 1-based
+      const diffLines = diffLinesByLine.get(lineNum) || [];
+      if (diffLines.length === 0) {
+        out.push(` ${fileContentLines[idx]}`);
+      } else {
+        for (const diffLine of diffLines) {
+          out.push(`${diffSymbol[diffLine.type]}${diffLine.content}`);
+        }
+      }
+    }
+    if (end < fileContentLines.length - 1) {
+      out.push(' // ...');
+    }
+  }
+
+  return out.join('\n');
+}
+
+/**
+ * Makes a concise version of a file, showing both additions and removals in one unified view.
  */
 export function makeConciseFile(params: {
   parsedPatch: ParsedPatch;
   fileContent: string; // Current file content (after changes)
-  show: 'additions' | 'removals'; // Whether to show addition or removal lines with +/- prefix
-  beforeLines?: number; // Number of lines to show before each region (default: 0)
-  afterLines?: number; // Number of lines to show after each region (default: 0)
+  beforeLines?: number;
+  afterLines?: number;
 }): string {
-  const { parsedPatch, fileContent, show, beforeLines = 0, afterLines = 0 } = params;
+  const { parsedPatch, fileContent, beforeLines = 0, afterLines = 0 } = params;
+  const lines = fileContent.split('\n');
 
-  let targetFileContent: string;
-  let regionsOfInterest: RegionOfInterest[] = [];
-  let allMarkedLines = new Set<number>();
+  // Step 1: Identify indices of interest from the diff
+  const originalIndicesOfInterest = identifyDiffLinesOfInterest(parsedPatch);
 
-  if (show === 'additions') {
-    // For additions, use the current file content and after state
-    targetFileContent = fileContent;
-    for (const chunk of parsedPatch.chunks) {
-      regionsOfInterest.push({
-        startLine: Math.max(1, chunk.after.startLine - beforeLines),
-        endLine: chunk.after.endLine + afterLines,
-        addedLines: getAddedLines(chunk),
-        removedLines: getRemovedLines(chunk),
-      });
-      getAddedLines(chunk).forEach((lineNum) => allMarkedLines.add(lineNum));
-    }
-  } else {
-    // For removals, reconstruct the original file content and use before state
-    targetFileContent = reconstructOriginalFile(fileContent, parsedPatch);
-    for (const chunk of parsedPatch.chunks) {
-      regionsOfInterest.push({
-        startLine: Math.max(1, chunk.before.startLine - beforeLines),
-        endLine: chunk.before.endLine + afterLines,
-        addedLines: getAddedLines(chunk),
-        removedLines: getRemovedLines(chunk),
-      });
-      getRemovedLines(chunk).forEach((lineNum) => allMarkedLines.add(lineNum));
-    }
-  }
+  // Step 2: Expand indices based on before/after configuration
+  const expandedBeforeAfterIndicesOfInterest = expandRegionsForContext(
+    originalIndicesOfInterest,
+    beforeLines,
+    afterLines,
+    lines.length,
+  );
 
-  // Implementation for real usage
-  const lines = targetFileContent.split('\n');
+  // Step 3: Expand lines based on indentation rules
+  const indicesOfInterest = expandRegionsForIndentation(expandedBeforeAfterIndicesOfInterest, lines);
 
-  // Clamp end lines to file length
-  regionsOfInterest = regionsOfInterest.map((region) => ({
-    ...region,
-    endLine: Math.min(region.endLine, lines.length),
-  }));
-
-  // Sort regions by start line
-  const sortedRegions = [...regionsOfInterest].sort((a, b) => a.startLine - b.startLine);
-  const regionWithLineIndices = sortedRegions.map((r) => ({
-    startLineIndex: r.startLine - 1,
-    endLineIndex: r.endLine - 1,
-  }));
-
-  const lineIndicesOfInterest = new Set<number>();
-
-  for (const region of regionWithLineIndices) {
-    let maxIndent = 0;
-    for (let lineNumber = region.startLineIndex; lineNumber <= region.endLineIndex; lineNumber++) {
-      const line = lines[lineNumber];
-      if (line === undefined) continue;
-      maxIndent = Math.max(maxIndent, getIndentLevel(line) ?? 0);
-      lineIndicesOfInterest.add(lineNumber);
-    }
-
-    let scanUpwardIndent = maxIndent;
-    let scanDownwardIndent = maxIndent;
-
-    for (let line = region.startLineIndex - 1; line >= 0; line--) {
-      const lineContent = lines[line];
-      if (lineContent === undefined) continue;
-      const thisIndent = getIndentLevel(lineContent);
-      if (thisIndent && thisIndent < scanUpwardIndent) {
-        scanUpwardIndent = thisIndent;
-        lineIndicesOfInterest.add(line);
-      }
-    }
-
-    for (let line = region.endLineIndex + 1; line < lines.length; line++) {
-      const lineContent = lines[line];
-      if (lineContent === undefined) continue;
-      const thisIndent = getIndentLevel(lineContent);
-      if (thisIndent && thisIndent < scanDownwardIndent) {
-        scanDownwardIndent = thisIndent;
-        lineIndicesOfInterest.add(line);
-      }
-    }
-  }
-
-  let lastAction: 'skip' | 'print' = 'print';
-  const output: string[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    if (lineIndicesOfInterest.has(i)) {
-      const line = lines[i];
-      if (line === undefined) continue;
-      lastAction = 'print';
-
-      // Check if this line should be marked with prefix
-      const isMarkedLine = allMarkedLines.has(i + 1); // Convert to 1-based line number
-      if (isMarkedLine) {
-        const prefix = show === 'additions' ? '+' : '-';
-        output.push(`${prefix}${line}`);
-      } else {
-        output.push(` ${line}`); // Add space prefix for unchanged lines
-      }
-    } else {
-      if (lastAction === 'skip') continue;
-      lastAction = 'skip';
-      output.push(' // ...'); // Add space prefix for skip lines too
-    }
-  }
-
-  return output.join('\n');
+  // Step 4: Render the final file with diff markers
+  return renderFileWithDiff(lines, indicesOfInterest, parsedPatch);
 }
 
-/**
- * Reconstructs the original file content before changes were applied
- */
-function reconstructOriginalFile(currentContent: string, parsedPatch: ParsedPatch): string {
-  const currentLines = currentContent.split('\n');
-  let resultLines = [...currentLines];
-
-  // Process chunks in reverse order (from end to beginning) to maintain line numbers
-  const sortedChunks = [...parsedPatch.chunks].sort((a, b) => b.after.startLine - a.after.startLine);
-
-  for (const chunk of sortedChunks) {
-    // Extract the before and after content
-    const beforeContent = chunk.before.lines.map(([_, content]) => content);
-    const afterContent = chunk.after.lines.map(([_, content]) => content);
-
-    // Find where the after content starts in the current file
-    const afterStart = chunk.after.startLine - 1; // Convert to 0-based
-
-    // Replace the after content with the before content
-    resultLines.splice(afterStart, afterContent.length, ...beforeContent);
-  }
-
-  return resultLines.join('\n');
-}
-
-/**
- * Helper function to extract added line numbers from a PatchChunk
- */
+/** Added line numbers in after‑file space */
 export function getAddedLines(chunk: PatchChunk): Set<number> {
-  const addedLines = new Set<number>();
-  let currentLine = chunk.after.startLine;
-
-  for (const [isModified, line] of chunk.after.lines) {
-    if (isModified) {
-      addedLines.add(currentLine);
+  const s = new Set<number>();
+  for (const line of chunk.diffLines) {
+    if (line.type === 'add') {
+      s.add(line.afterLine);
     }
-    currentLine++;
   }
-
-  return addedLines;
+  return s;
 }
 
-/**
- * Helper function to extract removed line numbers from a PatchChunk
- */
+/** Removed line numbers in before‑file space */
 export function getRemovedLines(chunk: PatchChunk): Set<number> {
-  const removedLines = new Set<number>();
-  let currentLine = chunk.before.startLine;
-
-  for (const [isModified, line] of chunk.before.lines) {
-    if (isModified) {
-      removedLines.add(currentLine);
+  const s = new Set<number>();
+  for (const line of chunk.diffLines) {
+    if (line.type === 'remove') {
+      s.add(line.beforeLine);
     }
-    currentLine++;
   }
-
-  return removedLines;
+  return s;
 }

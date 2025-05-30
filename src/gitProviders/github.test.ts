@@ -17,6 +17,8 @@ describe('GitHubDiffProvider', () => {
     dryRun: false,
     workingDir: '/test',
     mode: 'github',
+    beforeLines: 3,
+    afterLines: 3,
     github: {
       token: 'test-token',
       repo: 'owner/repo',
@@ -68,6 +70,7 @@ describe('GitHubDiffProvider', () => {
         owner: 'owner',
         repo: 'repo',
         pull_number: 123,
+        per_page: 100,
       });
     });
   });

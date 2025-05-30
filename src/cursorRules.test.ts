@@ -12,7 +12,7 @@ alwaysApply: false
 
 my custom rules here`;
 
-    const rule = parseCursorRule(ruleContent);
+    const rule = parseCursorRule('test.mdc', ruleContent);
 
     expect(rule).toEqual({
       description: 'generating mock providers for DType or IDType TypeDefinitions',
@@ -31,7 +31,7 @@ alwaysApply: false
 
 my custom rules here`;
 
-    const rule = parseCursorRule(ruleContent);
+    const rule = parseCursorRule('test.mdc', ruleContent);
 
     expect(rule).toEqual({
       description: 'generating mock providers for DType or IDType TypeDefinitions',
@@ -44,35 +44,45 @@ my custom rules here`;
   it('should handle missing front matter', () => {
     const ruleContent = 'my custom rules here';
 
-    expect(() => parseCursorRule(ruleContent)).toThrow('Invalid cursor rule: missing front matter');
+    expect(() => parseCursorRule('test.mdc', ruleContent)).toThrow('Invalid cursor rule: missing front matter');
   });
 
   it('should handle empty globs', () => {
     const ruleContent = `---
-description: test rule
+description: empty globs test
 globs: 
 alwaysApply: false
 ---
 
 my custom rules here`;
 
-    const rule = parseCursorRule(ruleContent);
+    const rule = parseCursorRule('test.mdc', ruleContent);
 
-    expect(rule.globs).toEqual([]);
+    expect(rule).toEqual({
+      description: 'empty globs test',
+      globs: [],
+      alwaysApply: false,
+      content: 'my custom rules here',
+    });
   });
 
   it('should handle alwaysApply as true', () => {
     const ruleContent = `---
-description: test rule
-globs: *.ts
+description: always apply test
+globs: **/*.ts
 alwaysApply: true
 ---
 
 my custom rules here`;
 
-    const rule = parseCursorRule(ruleContent);
+    const rule = parseCursorRule('test.mdc', ruleContent);
 
-    expect(rule.alwaysApply).toBe(true);
+    expect(rule).toEqual({
+      description: 'always apply test',
+      globs: ['**/*.ts'],
+      alwaysApply: true,
+      content: 'my custom rules here',
+    });
   });
 });
 

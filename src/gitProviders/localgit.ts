@@ -63,11 +63,15 @@ export class LocalGitDiffProvider implements GitProvider {
         if (currentFile.filename) {
           files.push(currentFile as DiffSetEntry);
         }
-        currentFile = {
-          filename: line.split(' ')[2].replace('a/', ''),
-          status: 'modified',
-          patch: '',
-        };
+        const parts = line.split(' ');
+        const filepath = parts[2]?.replace('a/', '');
+        if (filepath) {
+          currentFile = {
+            filename: filepath,
+            status: 'modified',
+            patch: '',
+          };
+        }
       } else if (currentFile.filename) {
         currentFile.patch = (currentFile.patch || '') + line + '\n';
       }

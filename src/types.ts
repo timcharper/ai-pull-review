@@ -2,7 +2,7 @@ export type DIFF_STATUS = 'added' | 'modified' | 'removed';
 
 export interface FileData {
   filename: string;
-  content: string;
+  change: string;
   originalContent: string;
   changes: string;
   status: DIFF_STATUS;

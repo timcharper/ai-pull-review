@@ -1,4 +1,12 @@
-import { makeConciseFile, parsePatch, getAddedLines, getRemovedLines } from './diff';
+import {
+  makeConciseFile,
+  parsePatch,
+  getAddedLines,
+  getRemovedLines,
+  getAfterLineRange,
+  getBeforeLineRange,
+  getContigousRanges,
+} from './diff';
 
 const exampleDiff = `
 diff --git a/src/index.test.ts b/src/index.test.ts
@@ -123,20 +131,78 @@ describe('glob utilities', () => {
 `;
 
 describe('diff', () => {
+  describe('getContigousRanges', () => {
+    it('should return empty array for empty input', () => {
+      expect(getContigousRanges([])).toEqual([]);
+    });
+
+    it('should return single range for single value', () => {
+      expect(getContigousRanges([5])).toEqual([{ start: 5, end: 5 }]);
+    });
+
+    it('should return single range for contiguous values', () => {
+      expect(getContigousRanges([1, 2, 3, 4, 5])).toEqual([{ start: 1, end: 5 }]);
+    });
+
+    it('should return multiple ranges for non-contiguous values', () => {
+      expect(getContigousRanges([1, 3, 5, 7])).toEqual([
+        { start: 1, end: 1 },
+        { start: 3, end: 3 },
+        { start: 5, end: 5 },
+        { start: 7, end: 7 },
+      ]);
+    });
+
+    it('should handle mixed contiguous and non-contiguous values', () => {
+      expect(getContigousRanges([1, 2, 3, 5, 6, 8, 10, 11, 12])).toEqual([
+        { start: 1, end: 3 },
+        { start: 5, end: 6 },
+        { start: 8, end: 8 },
+        { start: 10, end: 12 },
+      ]);
+    });
+
+    it('should handle ranges with gaps of 1', () => {
+      expect(getContigousRanges([1, 3, 4, 6, 7, 8, 10])).toEqual([
+        { start: 1, end: 1 },
+        { start: 3, end: 4 },
+        { start: 6, end: 8 },
+        { start: 10, end: 10 },
+      ]);
+    });
+
+    it('should handle large numbers', () => {
+      expect(getContigousRanges([100, 101, 102, 200, 201])).toEqual([
+        { start: 100, end: 102 },
+        { start: 200, end: 201 },
+      ]);
+    });
+
+    it('should handle starting with large numbers', () => {
+      expect(getContigousRanges([50, 51, 52])).toEqual([{ start: 50, end: 52 }]);
+    });
+  });
+
   describe('parseDiff', () => {
     it('should parse the diff', () => {
       const diff = parsePatch(exampleDiff);
       expect(diff.chunks.length).toBe(2);
 
       // First chunk
-      expect(diff.chunks[0].before.startLine).toBe(9);
-      expect(diff.chunks[0].after.startLine).toBe(9);
+      const firstChunkAfterRange = getAfterLineRange(diff.chunks[0]);
+      const firstChunkBeforeRange = getBeforeLineRange(diff.chunks[0]);
+      expect(firstChunkBeforeRange.startLine).toBe(9);
+      expect(firstChunkAfterRange.startLine).toBe(9);
       expect(getAddedLines(diff.chunks[0])).toContain(12); // Added line: expect(true).toBe(false);
 
       // Second chunk
-      expect(diff.chunks[1].before.startLine).toBe(52);
-      expect(diff.chunks[1].after.startLine).toBe(53);
+      const secondChunkAfterRange = getAfterLineRange(diff.chunks[1]);
+      const secondChunkBeforeRange = getBeforeLineRange(diff.chunks[1]);
+      expect(secondChunkBeforeRange.startLine).toBe(52);
+      expect(secondChunkAfterRange.startLine).toBe(53);
       expect(getAddedLines(diff.chunks[1])).toContain(58); // Added line: expect(true).toBe(false);
+
+      expect(diff).toMatchSnapshot();
     });
 
     it('should correctly track added and removed lines', () => {
@@ -156,6 +222,57 @@ describe('diff', () => {
       // Verify filename is parsed correctly (without b/ prefix)
       expect(diff.filename).toBe('src/index.test.ts');
     });
+
+    it('should correctly map line numbers for all diff line types', () => {
+      const diff = parsePatch(exampleDiff);
+
+      // Check the first chunk - should have context lines and one addition
+      const firstChunk = diff.chunks[0];
+
+      // Find the added line
+      const addedLine = firstChunk.diffLines.find((line) => line.type === 'add');
+      expect(addedLine).toBeDefined();
+      expect(addedLine!.content.trim()).toBe('expect(true).toBe(false);');
+
+      // The addition is inserted at line 12 in both before and after context
+      expect(addedLine!.beforeLine).toBe(12); // where it was inserted in before file context
+      expect(addedLine!.afterLine).toBe(12); // actual position in after file
+
+      // Check that context lines after the addition show the line number shift
+      const contextAfterAddition = firstChunk.diffLines.find(
+        (line, index) => line.type === 'context' && firstChunk.diffLines[index - 1]?.type === 'add',
+      );
+      expect(contextAfterAddition).toBeDefined();
+      expect(contextAfterAddition!.beforeLine).toBe(12); // still at 12 in before file
+      expect(contextAfterAddition!.afterLine).toBe(13); // advanced to 13 in after file due to addition
+
+      // Check the second chunk - has both addition and removal
+      const secondChunk = diff.chunks[1];
+
+      const removedLine = secondChunk.diffLines.find((line) => line.type === 'remove');
+      const addedLineInSecond = secondChunk.diffLines.find((line) => line.type === 'add');
+
+      expect(removedLine).toBeDefined();
+      expect(addedLineInSecond).toBeDefined();
+
+      // For the removal: line was at 55 in before file, would have been at 56 in after file
+      expect(removedLine!.content.trim()).toBe('// TODO: add more test cases');
+      expect(removedLine!.beforeLine).toBe(55); // actual position in before file
+      expect(removedLine!.afterLine).toBe(56); // where it would have been in after file
+
+      // For the addition: inserted at line 58 in both contexts
+      expect(addedLineInSecond!.content.trim()).toBe('expect(true).toBe(false);');
+      expect(addedLineInSecond!.beforeLine).toBe(58); // where it was inserted in before file context
+      expect(addedLineInSecond!.afterLine).toBe(58); // actual position in after file
+
+      // Check that context line after addition shows the shift
+      const contextAfterSecondAddition = secondChunk.diffLines.find(
+        (line, index) => line.type === 'context' && secondChunk.diffLines[index - 1]?.type === 'add',
+      );
+      expect(contextAfterSecondAddition).toBeDefined();
+      expect(contextAfterSecondAddition!.beforeLine).toBe(58); // still at 58 in before file
+      expect(contextAfterSecondAddition!.afterLine).toBe(59); // advanced to 59 in after file
+    });
   });
 
   describe('makeConciseFile', () => {
@@ -164,20 +281,24 @@ describe('diff', () => {
       const concise = makeConciseFile({
         parsedPatch,
         fileContent: sourceFile,
-        show: 'additions',
       });
 
       expect(concise).toMatchSnapshot();
     });
 
     it('returns the whole file with space prefixes when the entire file is of interest', () => {
-      // Create a simple patch that covers the whole file
+      // Create a simple patch that covers the whole file as context
+      const lines = sourceFile.split('\n');
       const wholePatch = {
         filename: 'src/index.test.ts',
         chunks: [
           {
-            before: { startLine: 1, endLine: sourceFile.split('\n').length, lines: [] as Array<[boolean, string]> },
-            after: { startLine: 1, endLine: sourceFile.split('\n').length, lines: [] as Array<[boolean, string]> },
+            diffLines: lines.map((line, index) => ({
+              type: 'context' as const,
+              content: line,
+              beforeLine: index + 1,
+              afterLine: index + 1,
+            })),
           },
         ],
       };
@@ -185,7 +306,6 @@ describe('diff', () => {
       const concise = makeConciseFile({
         parsedPatch: wholePatch,
         fileContent: sourceFile,
-        show: 'additions',
       });
 
       // Should have space prefix for all lines since no addedLines specified
@@ -196,44 +316,20 @@ describe('diff', () => {
       expect(concise).toBe(expectedResult);
     });
 
-    it('should mark addition lines with + prefix when show is "additions"', () => {
+    it('should mark addition lines with + prefix and removal lines with - prefix', () => {
       const parsedPatch = parsePatch(exampleDiff);
       const concise = makeConciseFile({
         parsedPatch,
         fileContent: sourceFile,
-        show: 'additions',
       });
       expect(concise).toMatchSnapshot();
     });
 
-    it('should mark removal lines with - prefix when show is "removals"', () => {
+    it('should show both additions and removals in different regions', () => {
       const parsedPatch = parsePatch(exampleDiff);
       const concise = makeConciseFile({
         parsedPatch,
         fileContent: sourceFile,
-        show: 'removals',
-      });
-
-      expect(concise).toMatchSnapshot();
-    });
-
-    it('should not mark lines when they are not in the specified change set', () => {
-      const parsedPatch = parsePatch(exampleDiff);
-      const concise = makeConciseFile({
-        parsedPatch,
-        fileContent: sourceFile,
-        show: 'removals', // But we're showing removals, so additions won't have prefix
-      });
-
-      expect(concise).toMatchSnapshot();
-    });
-
-    it('should handle both additions and removals in different regions', () => {
-      const parsedPatch = parsePatch(exampleDiff);
-      const concise = makeConciseFile({
-        parsedPatch,
-        fileContent: sourceFile,
-        show: 'additions',
       });
 
       expect(concise).toMatchSnapshot();
@@ -244,7 +340,6 @@ describe('diff', () => {
       const concise = makeConciseFile({
         parsedPatch,
         fileContent: sourceFile,
-        show: 'additions',
         beforeLines: 3,
         afterLines: 2,
       });
@@ -257,7 +352,6 @@ describe('diff', () => {
       const concise = makeConciseFile({
         parsedPatch,
         fileContent: sourceFile,
-        show: 'additions',
         beforeLines: 100, // Should clamp to start of file
         afterLines: 100, // Should clamp to end of file
       });

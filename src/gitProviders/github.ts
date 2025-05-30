@@ -13,6 +13,9 @@ interface PRDetails {
 
 function parseRepo(ownerAndRepo: string): { owner: string; repo: string } {
   const [owner, repo] = ownerAndRepo.split('/');
+  if (!owner || !repo) {
+    throw new Error(`Invalid repository format: ${ownerAndRepo}. Expected format: owner/repo`);
+  }
   return { owner, repo };
 }
 

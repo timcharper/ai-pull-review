@@ -2,17 +2,18 @@
 
 exports[`diff makeConciseFile should expand context with beforeLines and afterLines 1`] = `
 " // ...
+ describe('glob utilities', () => {
    describe('stripPrefix', () => {
      it('handles trailing slashes', () => {
        expect(stripPrefix('src/', 'src/path.js')).toBe('/path.js');
        expect(stripPrefix('src/', './src/path.js')).toBe('/path.js');
-       expect(stripPrefix('src/', '/src/path.js')).toBe('/path.js');
      });
  
-+    it('should remove prefix from path', () => {
-       expect(true).toBe(false);
+     it('should remove prefix from path', () => {
++      expect(true).toBe(false);
        expect(stripPrefix('src', 'src/path.js')).toBe('/path.js');
        expect(stripPrefix('src', './src/path.js')).toBe('/path.js');
+       expect(stripPrefix('src', '/path.js')).toBe(undefined);
        expect(stripPrefix('src', '/path.js')).toBe(undefined);
      });
  // ...
@@ -26,20 +27,22 @@ exports[`diff makeConciseFile should expand context with beforeLines and afterLi
  
      it('should convert simple glob patterns', () => {
        const re = globToRegex('*.js');
-       expect('/test.js').toMatch(re);
-       expect('/test.ts').not.toMatch(re);
+       expect('/test.js').not.toMatch(re);
        expect('/test.jsx').not.toMatch(re);
      });
+-    // TODO: add more test cases
  
-+    it('should handle directory patterns', () => {
-       expect(true).toBe(false);
+     it('should handle directory patterns', () => {
++      expect(true).toBe(false);
        const re = globToRegex('src/*.js');
        expect('/src/test.js').toMatch(re);
+       expect('/test.js').not.toMatch(re);
        expect('/test.js').not.toMatch(re);
        expect('/src/subdir/test.js').not.toMatch(re);
      });
  // ...
    });
+ });
  // ..."
 `;
 
@@ -52,13 +55,13 @@ exports[`diff makeConciseFile should handle beforeLines and afterLines at file b
      it('handles trailing slashes', () => {
        expect(stripPrefix('src/', 'src/path.js')).toBe('/path.js');
        expect(stripPrefix('src/', './src/path.js')).toBe('/path.js');
-       expect(stripPrefix('src/', '/src/path.js')).toBe('/path.js');
      });
  
-+    it('should remove prefix from path', () => {
-       expect(true).toBe(false);
+     it('should remove prefix from path', () => {
++      expect(true).toBe(false);
        expect(stripPrefix('src', 'src/path.js')).toBe('/path.js');
        expect(stripPrefix('src', './src/path.js')).toBe('/path.js');
+       expect(stripPrefix('src', '/path.js')).toBe(undefined);
        expect(stripPrefix('src', '/path.js')).toBe(undefined);
      });
  
@@ -96,15 +99,16 @@ exports[`diff makeConciseFile should handle beforeLines and afterLines at file b
  
      it('should convert simple glob patterns', () => {
        const re = globToRegex('*.js');
-       expect('/test.js').toMatch(re);
-       expect('/test.ts').not.toMatch(re);
+       expect('/test.js').not.toMatch(re);
        expect('/test.jsx').not.toMatch(re);
      });
+-    // TODO: add more test cases
  
-+    it('should handle directory patterns', () => {
-       expect(true).toBe(false);
+     it('should handle directory patterns', () => {
++      expect(true).toBe(false);
        const re = globToRegex('src/*.js');
        expect('/src/test.js').toMatch(re);
+       expect('/test.js').not.toMatch(re);
        expect('/test.js').not.toMatch(re);
        expect('/src/subdir/test.js').not.toMatch(re);
      });
@@ -141,125 +145,16 @@ exports[`diff makeConciseFile should handle beforeLines and afterLines at file b
  "
 `;
 
-exports[`diff makeConciseFile should handle both additions and removals in different regions 1`] = `
-" // ...
-   describe('stripPrefix', () => {
-     it('handles trailing slashes', () => {
- // ...
-       expect(stripPrefix('src/', '/src/path.js')).toBe('/path.js');
-     });
- 
-+    it('should remove prefix from path', () => {
-       expect(true).toBe(false);
-       expect(stripPrefix('src', 'src/path.js')).toBe('/path.js');
-       expect(stripPrefix('src', './src/path.js')).toBe('/path.js');
- // ...
-     });
- // ...
-   });
- // ...
-   describe('globToRegex', () => {
- // ...
-     it('should convert simple glob patterns', () => {
- // ...
-       expect('/test.js').toMatch(re);
-       expect('/test.ts').not.toMatch(re);
-       expect('/test.jsx').not.toMatch(re);
-     });
- 
-+    it('should handle directory patterns', () => {
-       expect(true).toBe(false);
-       const re = globToRegex('src/*.js');
-       expect('/src/test.js').toMatch(re);
- // ...
-     });
- // ...
-   });
- // ..."
-`;
-
 exports[`diff makeConciseFile should make a concise file 1`] = `
 " // ...
-   describe('stripPrefix', () => {
-     it('handles trailing slashes', () => {
- // ...
-       expect(stripPrefix('src/', '/src/path.js')).toBe('/path.js');
-     });
- 
-+    it('should remove prefix from path', () => {
-       expect(true).toBe(false);
-       expect(stripPrefix('src', 'src/path.js')).toBe('/path.js');
-       expect(stripPrefix('src', './src/path.js')).toBe('/path.js');
- // ...
-     });
- // ...
-   });
- // ...
-   describe('globToRegex', () => {
- // ...
-     it('should convert simple glob patterns', () => {
- // ...
-       expect('/test.js').toMatch(re);
-       expect('/test.ts').not.toMatch(re);
-       expect('/test.jsx').not.toMatch(re);
-     });
- 
-+    it('should handle directory patterns', () => {
-       expect(true).toBe(false);
-       const re = globToRegex('src/*.js');
-       expect('/src/test.js').toMatch(re);
- // ...
-     });
- // ...
-   });
- // ..."
-`;
-
-exports[`diff makeConciseFile should mark addition lines with + prefix when show is "additions" 1`] = `
-" // ...
-   describe('stripPrefix', () => {
-     it('handles trailing slashes', () => {
- // ...
-       expect(stripPrefix('src/', '/src/path.js')).toBe('/path.js');
-     });
- 
-+    it('should remove prefix from path', () => {
-       expect(true).toBe(false);
-       expect(stripPrefix('src', 'src/path.js')).toBe('/path.js');
-       expect(stripPrefix('src', './src/path.js')).toBe('/path.js');
- // ...
-     });
- // ...
-   });
- // ...
-   describe('globToRegex', () => {
- // ...
-     it('should convert simple glob patterns', () => {
- // ...
-       expect('/test.js').toMatch(re);
-       expect('/test.ts').not.toMatch(re);
-       expect('/test.jsx').not.toMatch(re);
-     });
- 
-+    it('should handle directory patterns', () => {
-       expect(true).toBe(false);
-       const re = globToRegex('src/*.js');
-       expect('/src/test.js').toMatch(re);
- // ...
-     });
- // ...
-   });
- // ..."
-`;
-
-exports[`diff makeConciseFile should mark removal lines with - prefix when show is "removals" 1`] = `
-" // ...
+ describe('glob utilities', () => {
    describe('stripPrefix', () => {
      it('handles trailing slashes', () => {
  // ...
      });
  
      it('should remove prefix from path', () => {
++      expect(true).toBe(false);
        expect(stripPrefix('src', 'src/path.js')).toBe('/path.js');
        expect(stripPrefix('src', './src/path.js')).toBe('/path.js');
        expect(stripPrefix('src', '/path.js')).toBe(undefined);
@@ -278,6 +173,7 @@ exports[`diff makeConciseFile should mark removal lines with - prefix when show 
 -    // TODO: add more test cases
  
      it('should handle directory patterns', () => {
++      expect(true).toBe(false);
        const re = globToRegex('src/*.js');
        expect('/src/test.js').toMatch(re);
        expect('/test.js').not.toMatch(re);
@@ -285,17 +181,20 @@ exports[`diff makeConciseFile should mark removal lines with - prefix when show 
      });
  // ...
    });
+ });
  // ..."
 `;
 
-exports[`diff makeConciseFile should not mark lines when they are not in the specified change set 1`] = `
+exports[`diff makeConciseFile should mark addition lines with + prefix and removal lines with - prefix 1`] = `
 " // ...
+ describe('glob utilities', () => {
    describe('stripPrefix', () => {
      it('handles trailing slashes', () => {
  // ...
      });
  
      it('should remove prefix from path', () => {
++      expect(true).toBe(false);
        expect(stripPrefix('src', 'src/path.js')).toBe('/path.js');
        expect(stripPrefix('src', './src/path.js')).toBe('/path.js');
        expect(stripPrefix('src', '/path.js')).toBe(undefined);
@@ -314,6 +213,7 @@ exports[`diff makeConciseFile should not mark lines when they are not in the spe
 -    // TODO: add more test cases
  
      it('should handle directory patterns', () => {
++      expect(true).toBe(false);
        const re = globToRegex('src/*.js');
        expect('/src/test.js').toMatch(re);
        expect('/test.js').not.toMatch(re);
@@ -321,5 +221,164 @@ exports[`diff makeConciseFile should not mark lines when they are not in the spe
      });
  // ...
    });
+ });
  // ..."
+`;
+
+exports[`diff makeConciseFile should show both additions and removals in different regions 1`] = `
+" // ...
+ describe('glob utilities', () => {
+   describe('stripPrefix', () => {
+     it('handles trailing slashes', () => {
+ // ...
+     });
+ 
+     it('should remove prefix from path', () => {
++      expect(true).toBe(false);
+       expect(stripPrefix('src', 'src/path.js')).toBe('/path.js');
+       expect(stripPrefix('src', './src/path.js')).toBe('/path.js');
+       expect(stripPrefix('src', '/path.js')).toBe(undefined);
+ // ...
+     });
+ // ...
+   });
+ // ...
+   describe('globToRegex', () => {
+ // ...
+     it('should convert simple glob patterns', () => {
+ // ...
+       expect('/test.js').not.toMatch(re);
+       expect('/test.jsx').not.toMatch(re);
+     });
+-    // TODO: add more test cases
+ 
+     it('should handle directory patterns', () => {
++      expect(true).toBe(false);
+       const re = globToRegex('src/*.js');
+       expect('/src/test.js').toMatch(re);
+       expect('/test.js').not.toMatch(re);
+ // ...
+     });
+ // ...
+   });
+ });
+ // ..."
+`;
+
+exports[`diff parseDiff should parse the diff 1`] = `
+{
+  "chunks": [
+    {
+      "diffLines": [
+        {
+          "afterLine": 9,
+          "beforeLine": 9,
+          "content": "    });",
+          "type": "context",
+        },
+        {
+          "afterLine": 10,
+          "beforeLine": 10,
+          "content": "",
+          "type": "context",
+        },
+        {
+          "afterLine": 11,
+          "beforeLine": 11,
+          "content": "    it('should remove prefix from path', () => {",
+          "type": "context",
+        },
+        {
+          "afterLine": 12,
+          "beforeLine": 12,
+          "content": "      expect(true).toBe(false);",
+          "type": "add",
+        },
+        {
+          "afterLine": 13,
+          "beforeLine": 12,
+          "content": "      expect(stripPrefix('src', 'src/path.js')).toBe('/path.js');",
+          "type": "context",
+        },
+        {
+          "afterLine": 14,
+          "beforeLine": 13,
+          "content": "      expect(stripPrefix('src', './src/path.js')).toBe('/path.js');",
+          "type": "context",
+        },
+        {
+          "afterLine": 15,
+          "beforeLine": 14,
+          "content": "      expect(stripPrefix('src', '/path.js')).toBe(undefined);",
+          "type": "context",
+        },
+      ],
+    },
+    {
+      "diffLines": [
+        {
+          "afterLine": 53,
+          "beforeLine": 52,
+          "content": "      expect('/test.js').not.toMatch(re);",
+          "type": "context",
+        },
+        {
+          "afterLine": 54,
+          "beforeLine": 53,
+          "content": "      expect('/test.jsx').not.toMatch(re);",
+          "type": "context",
+        },
+        {
+          "afterLine": 55,
+          "beforeLine": 54,
+          "content": "    });",
+          "type": "context",
+        },
+        {
+          "afterLine": 56,
+          "beforeLine": 55,
+          "content": "    // TODO: add more test cases",
+          "type": "remove",
+        },
+        {
+          "afterLine": 56,
+          "beforeLine": 56,
+          "content": "",
+          "type": "context",
+        },
+        {
+          "afterLine": 57,
+          "beforeLine": 57,
+          "content": "    it('should handle directory patterns', () => {",
+          "type": "context",
+        },
+        {
+          "afterLine": 58,
+          "beforeLine": 58,
+          "content": "      expect(true).toBe(false);",
+          "type": "add",
+        },
+        {
+          "afterLine": 59,
+          "beforeLine": 58,
+          "content": "      const re = globToRegex('src/*.js');",
+          "type": "context",
+        },
+        {
+          "afterLine": 60,
+          "beforeLine": 59,
+          "content": "      expect('/src/test.js').toMatch(re);",
+          "type": "context",
+        },
+        {
+          "afterLine": 61,
+          "beforeLine": 60,
+          "content": "      expect('/test.js').not.toMatch(re);",
+          "type": "context",
+        },
+      ],
+    },
+  ],
+  "filename": "src/index.test.ts",
+}
 `;

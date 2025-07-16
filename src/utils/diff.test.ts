@@ -130,22 +130,34 @@ describe('glob utilities', () => {
 });
 `;
 
+const sourceFileLines = sourceFile.split('\n');
+
+const exampleDiffAdded = `
+diff --git a/.cursor/rules/enrichment-service-api.mdc b/.cursor/rules/enrichment-service-api.mdc
+new file mode 100644
+index 00000000000..69fc215ab9f
+--- /dev/null
++++ b/src/index.test.ts
+@@ -0,0 +1,${sourceFileLines.length} @@
+${sourceFileLines.map((line) => `+${line}`).join('\n')}
+`;
+
 describe('diff', () => {
   describe('getContigousRanges', () => {
     it('should return empty array for empty input', () => {
-      expect(getContigousRanges([])).toEqual([]);
+      expect(getContigousRanges(new Set([]))).toEqual([]);
     });
 
     it('should return single range for single value', () => {
-      expect(getContigousRanges([5])).toEqual([{ start: 5, end: 5 }]);
+      expect(getContigousRanges(new Set([5]))).toEqual([{ start: 5, end: 5 }]);
     });
 
     it('should return single range for contiguous values', () => {
-      expect(getContigousRanges([1, 2, 3, 4, 5])).toEqual([{ start: 1, end: 5 }]);
+      expect(getContigousRanges(new Set([1, 2, 3, 4, 5]))).toEqual([{ start: 1, end: 5 }]);
     });
 
     it('should return multiple ranges for non-contiguous values', () => {
-      expect(getContigousRanges([1, 3, 5, 7])).toEqual([
+      expect(getContigousRanges(new Set([1, 3, 5, 7]))).toEqual([
         { start: 1, end: 1 },
         { start: 3, end: 3 },
         { start: 5, end: 5 },
@@ -154,7 +166,7 @@ describe('diff', () => {
     });
 
     it('should handle mixed contiguous and non-contiguous values', () => {
-      expect(getContigousRanges([1, 2, 3, 5, 6, 8, 10, 11, 12])).toEqual([
+      expect(getContigousRanges(new Set([1, 2, 3, 5, 6, 8, 10, 11, 12]))).toEqual([
         { start: 1, end: 3 },
         { start: 5, end: 6 },
         { start: 8, end: 8 },
@@ -163,7 +175,7 @@ describe('diff', () => {
     });
 
     it('should handle ranges with gaps of 1', () => {
-      expect(getContigousRanges([1, 3, 4, 6, 7, 8, 10])).toEqual([
+      expect(getContigousRanges(new Set([1, 3, 4, 6, 7, 8, 10]))).toEqual([
         { start: 1, end: 1 },
         { start: 3, end: 4 },
         { start: 6, end: 8 },
@@ -172,14 +184,14 @@ describe('diff', () => {
     });
 
     it('should handle large numbers', () => {
-      expect(getContigousRanges([100, 101, 102, 200, 201])).toEqual([
+      expect(getContigousRanges(new Set([100, 101, 102, 200, 201]))).toEqual([
         { start: 100, end: 102 },
         { start: 200, end: 201 },
       ]);
     });
 
     it('should handle starting with large numbers', () => {
-      expect(getContigousRanges([50, 51, 52])).toEqual([{ start: 50, end: 52 }]);
+      expect(getContigousRanges(new Set([50, 51, 52]))).toEqual([{ start: 50, end: 52 }]);
     });
   });
 
@@ -276,6 +288,15 @@ describe('diff', () => {
   });
 
   describe('makeConciseFile', () => {
+    it('should make a concise file for an added file', () => {
+      const parsedPatch = parsePatch(exampleDiffAdded);
+      const concise = makeConciseFile({
+        parsedPatch,
+        fileContent: sourceFile,
+      });
+      expect(concise).toMatchSnapshot();
+    });
+
     it('should make a concise file', () => {
       const parsedPatch = parsePatch(exampleDiff);
       const concise = makeConciseFile({

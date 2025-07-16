@@ -107,7 +107,7 @@ export function parsePatch(patch: string): ParsedPatch {
       currentOldStart = parseInt(m[1], 10);
       currentNewStart = parseInt(m[2], 10);
       currentBuf.push(line);
-    } else if (currentOldStart > 0) {
+    } else if (currentOldStart > 0 || currentNewStart > 0) {
       currentBuf.push(line);
     }
   }

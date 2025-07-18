@@ -1,6 +1,6 @@
 import { execSync } from 'child_process';
 import { GitProvider, DiffSet, DiffSetEntry } from '../gitProvider';
-import { Config, LocalGitConfig, DIFF_STATUS } from '../types';
+import { Config, LocalGitConfig, DIFF_STATUS, CommitMessage } from '../types';
 import { minimatch } from 'minimatch';
 import assert from 'assert';
 import { logger } from '../utils/logger';
@@ -120,6 +120,41 @@ export class LocalGitDiffProvider implements GitProvider {
       return filterPathsWithGlobAndPrefix(allFiles, path, glob);
     } catch (error) {
       logger.error(`Error listing files in ${path} matching ${glob}:`, error);
+      return [];
+    }
+  }
+
+  async getCommitMessages(baseSha: string, headSha: string): Promise<CommitMessage[]> {
+    try {
+      const cmd = `git log ${baseSha}..${headSha} --pretty=format:"%H|%an|%ad|%s" --date=iso`;
+      logger.debug('Getting commit messages with command:', cmd);
+
+      const output = execSync(cmd, {
+        encoding: 'utf8',
+        cwd: this.config.workingDir,
+      });
+
+      if (!output.trim()) {
+        return [];
+      }
+
+      const commits: CommitMessage[] = output
+        .split('\n')
+        .filter(Boolean)
+        .map((line) => {
+          const [sha, author, date, ...messageParts] = line.split('|');
+          return {
+            sha: sha || '',
+            author: author || '',
+            date: date || '',
+            message: messageParts.join('|') || '',
+          };
+        });
+
+      logger.debug('Found commit messages:', commits.length);
+      return commits;
+    } catch (error) {
+      logger.error('Error getting commit messages:', error);
       return [];
     }
   }

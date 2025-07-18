@@ -1,4 +1,4 @@
-import { DIFF_STATUS } from './types';
+import { DIFF_STATUS, CommitMessage } from './types';
 
 // Our minimal types that only include fields we actually use
 export interface DiffSetEntry {
@@ -18,4 +18,5 @@ export interface GitProvider {
   writeComment(comment: string): Promise<void>;
   getFileContent(filename: string): Promise<string>;
   listFiles(path: string, glob: string): Promise<string[]>;
+  getCommitMessages(baseSha: string, headSha: string): Promise<CommitMessage[]>;
 }

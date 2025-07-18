@@ -12,6 +12,8 @@ describe('LocalGitDiffProvider', () => {
     exclude: [],
     maxFiles: 100,
     maxSize: 1000,
+    afterLines: 10,
+    beforeLines: 10,
     commentThreshold: 0.5,
     writePullRequest: false,
     output: 'stdout',
@@ -76,6 +78,14 @@ describe('LocalGitDiffProvider', () => {
     it('should return empty string for non-existent file', async () => {
       const content = await provider.getFileContent('nonexistent.txt');
       expect(content).toBe('');
+    });
+  });
+
+  describe('getCommitMessages', () => {
+    it('should get commit messages', async () => {
+      const commitMessages = await provider.getCommitMessages('main', 'HEAD');
+      expect(commitMessages).toHaveLength(2);
+      expect(commitMessages).toMatchSnapshot();
     });
   });
 

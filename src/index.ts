@@ -1,7 +1,7 @@
 import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { join } from 'path';
 import { AnthropicBatchManager } from './anthropic';
-import { Config, FileData, AnalysisOptions } from './types';
+import { Config, FileData, AnalysisOptions, CommitMessage } from './types';
 import { loadCursorRulesFromDirectory, findMatchingRules } from './cursorRules';
 import { DiffSet, DiffSetEntry, GitProvider } from './gitProvider';
 import { GitHubDiffProvider } from './gitProviders/github';
@@ -70,37 +70,55 @@ It is VERY IMPORTANT that the code follows these rules.
 
 ---
 
+# Commit Messages:
+
+{commit_messages}
+
+---
+
 # Changes:
 
 {changes}
 
 `;
 
-async function analyzeFiles(
-  files: FileData[],
-  options: AnalysisOptions,
-  config: Config,
-  provider: GitProvider,
-): Promise<string> {
+async function analyzeFiles(params: {
+  files: FileData[];
+  options: AnalysisOptions;
+  config: Config;
+  commitMessages: CommitMessage[];
+  cursorRules: string;
+}): Promise<string> {
+  const { files, options, config, commitMessages, cursorRules } = params;
+
   const anthropic = new AnthropicBatchManager(process.env.ANTHROPIC_API_KEY || '');
 
-  const cursorRules = await generateCursorRules(files, provider);
+  // Format commit messages
+  const formattedCommitMessages =
+    commitMessages.length > 0
+      ? commitMessages.map((commit) => commit.message).join('\n\n')
+      : 'No commit messages found in this range.';
+
   logger.debug(
     'All files:',
     files.map((f) => [f.filename, f.status]),
   );
-  const prompt = PROMPT_TEMPLATE.replace('{cursor_rules}', cursorRules).replace(
-    '{changes}',
-    files
-      .filter((f) => f.status !== 'removed')
-      .map(
-        (f) => `File: \`${f.filename}\`
+  logger.debug('Found commit messages:', commitMessages.length);
+
+  const prompt = PROMPT_TEMPLATE.replace('{cursor_rules}', cursorRules)
+    .replace('{commit_messages}', formattedCommitMessages)
+    .replace(
+      '{changes}',
+      files
+        .filter((f) => f.status !== 'removed')
+        .map(
+          (f) => `File: \`${f.filename}\`
 
 ${indent(f.change, 4)}
 `,
-      )
-      .join('\n\n'),
-  );
+        )
+        .join('\n\n'),
+    );
 
   if (config.dryRun) {
     console.log('=== DRY RUN: Prompt that would be sent to the model ===\n');
@@ -198,6 +216,9 @@ export async function analyzePR(config: Config): Promise<void> {
   // Filter and process files
   const fileData = await processFiles(provider, diff.files, config);
 
+  // get commit messages here
+  const commitMessages = await provider.getCommitMessages(diff.baseSha, diff.headSha);
+
   // Prepare analysis options
   const analysisOptions: AnalysisOptions = {
     model: config.model,
@@ -211,7 +232,15 @@ export async function analyzePR(config: Config): Promise<void> {
 
   // Analyze files
   logger.info('Starting file analysis');
-  const analysis = await analyzeFiles(fileData, analysisOptions, config, provider);
+
+  const cursorRules = await generateCursorRules(fileData, provider);
+  const analysis = await analyzeFiles({
+    files: fileData,
+    options: analysisOptions,
+    config,
+    commitMessages,
+    cursorRules,
+  });
 
   logger.debug('Analysis:', analysis);
 

@@ -28,6 +28,13 @@ export interface LocalGitConfig {
   headSha: string;
 }
 
+export interface CommitMessage {
+  sha: string;
+  message: string;
+  author: string;
+  date: string;
+}
+
 export interface Config {
   afterLines: number;
   beforeLines: number;

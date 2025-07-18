@@ -1,6 +1,6 @@
 import assert from 'assert';
 import { GitProvider, DiffSet, DiffSetEntry } from '../gitProvider';
-import { Config, DIFF_STATUS, GitHubConfig } from '../types';
+import { Config, DIFF_STATUS, GitHubConfig, CommitMessage } from '../types';
 import type { Octokit } from '@octokit/rest' with { 'resolution-mode': 'import' };
 import { logger } from '../utils/logger';
 import { filterPathsWithGlobAndPrefix, globToRegex, stripPrefix } from '../utils/glob';
@@ -168,6 +168,36 @@ export class GitHubDiffProvider implements GitProvider {
       );
     } catch (error) {
       logger.error(`Error listing files in ${pathPrefix} matching ${glob}:`, error);
+      return [];
+    }
+  }
+
+  async getCommitMessages(baseSha: string, headSha: string): Promise<CommitMessage[]> {
+    const { repo, prNumber } = this.githubConfig;
+    const { owner, repo: repoName } = parseRepo(repo);
+
+    try {
+      logger.debug('Getting commit messages for PR', { owner, repo: repoName, prNumber });
+
+      // Get all commits in the pull request
+      const { data: commits } = await this.octokit.pulls.listCommits({
+        owner,
+        repo: repoName,
+        pull_number: prNumber,
+        per_page: 100,
+      });
+
+      const commitMessages: CommitMessage[] = commits.map((commit) => ({
+        sha: commit.sha,
+        author: commit.commit.author?.name || commit.author?.login || 'Unknown',
+        date: commit.commit.author?.date || '',
+        message: commit.commit.message,
+      }));
+
+      logger.debug('Found commit messages:', commitMessages.length);
+      return commitMessages;
+    } catch (error) {
+      logger.error('Error getting commit messages from GitHub:', error);
       return [];
     }
   }

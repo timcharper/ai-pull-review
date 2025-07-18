@@ -1,0 +1,18 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`LocalGitDiffProvider getCommitMessages should get commit messages 1`] = `
+[
+  {
+    "author": "Tim Harper",
+    "date": "2025-07-16 13:28:16 -0600",
+    "message": "Add cursor rules",
+    "sha": "8f22ee5d6658b63f18122afb3a4028b805428127",
+  },
+  {
+    "author": "Tim Harper",
+    "date": "2025-07-16 13:28:15 -0600",
+    "message": "Feature branch",
+    "sha": "8c776a3c913e0abdbe5840a8ff8d483ec2cb5805",
+  },
+]
+`;
